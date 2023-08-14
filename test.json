@@ -1,0 +1,26 @@
+{"addominali": [[45, "Leg raises panca decl.", "1 minuto",   4, "/", null], [30, "Crunch abs", "/",  4, "15㎏", null]],
+"pettobi": [
+    [80, "Pec fly", "10 | 10 | 6+6+6",   3, "79㎏ | 79㎏, -2, -2", null],
+    [120, "Panca inclinata", "5",    4, "22,5㎏", "mani a 2 dita dal primo anello"],
+    [60, "Chest press", "6 + 3RP",   1, "59㎏", "15 sec di RP"],
+    [60, "Croci (cavi alti)", "isomix",  3, "9㎏", "sostituibile con croci panca declinata"],
+    [60, "Curl spider p 30°", "12",  4, "7㎏", null],
+    [60, "Curl 45°", "10",   4, "7㎏", null],
+    [30, "Curl scott unilaterale", "10 a braccio",   3, "10㎏", null]
+],
+"schiena": [
+    [45, "Lat pull (maniglie)", "10",    4, "45㎏ + 1", null],
+    [90, "Rematore bilancere", "/", "4", "12,5㎏ | 13,75㎏ | 15㎏", null],
+    [80, "Low row p. prona", "6 | 10 + 10",  4, "52㎏ | 41㎏, 32㎏", null],
+    [80, "Pulley", "isomix 2.0", 2, "25㎏", null],
+    [60, "Dante row", "12 / 15", 2, "35㎏", null],
+    [45, "Face pulls", "10 / 12",    3, "23㎏", null]
+    ],
+"spalletri": [
+    [60, "Alzate lat", "12 + ds | 15 + 2 ds | 20 + 3 ds",    3, "10㎏, 5㎏ | 8㎏, 5㎏, 3㎏ | 5㎏, 3㎏, 2㎏, 2㎏", null],
+    [90, "Lento man", "8|6|6|4",     4, "24㎏ ; 26㎏", null],
+    [60, "Alzate lat p 60°", "12 / 15",  4, "8㎏", null],
+    [90, "Shoulder press", "8 normali, 4 ss",    4, "23㎏", null],
+    [60, "Six ways", "six ways", 2, "3㎏", "steps:\n1 alzata laterale\n2 portare i manubri davanti al petto\n3 alzare in alto\n4 ripercorrere i passi fino a ritornare alla posizione iniziale"],
+    [60, "Push down corda", "myoreps pausa 10\"",    3, "32㎏", "schiena inclinata di solo 15° in avanti"],
+    [90, "Distensioni PP p. stretta", "6 / 8 ; 12",  4, "16,25㎏ ; 10㎏", null]]}
