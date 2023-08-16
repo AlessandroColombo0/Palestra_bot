@@ -1858,7 +1858,7 @@ def Grafico_radarScheda(dizAll_inizio, dizAll_fine, date_workout, count_workout)
 
     fig.tight_layout(pad=3)  # fa in modo che i grafici non siano appiccicati
 
-    fname = "Grafico_schedaWorkout.png"
+    fname = "tempoeranei/Grafico_schedaWorkout.png"
     plt.savefig(fname, dpi=300)
     img = open(fname, "rb")
 

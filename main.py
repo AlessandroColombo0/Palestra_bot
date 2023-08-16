@@ -25,6 +25,7 @@ bot.send_message(chat_id=a_uid, text=blank_char+"🟢", disable_notification=Tru
 botStarted_dict = {"txt": f"`{ora}` *\>* Bot started\n"}
 botStarted_dict["msg"] = bot.send_message(chat_id=a_uid, text=botStarted_dict["txt"], disable_notification=True, parse_mode="MarkdownV2")
 
+
 def addTo_botStarted(new_txt):
     ora = ora_EU(soloOre=True)
     botStarted_dict["txt"] += f"`{ora}` *\>* {new_txt}\n"
@@ -32,9 +33,16 @@ def addTo_botStarted(new_txt):
 
     print(f"\n{botStarted_dict['txt']}\n")
 
+def bot_trySend(msg_text, reply_markup=None, parse_mode="MarkdownV2"):
+    try:
+        msg_ = bot.send_message(a_uid, msg_text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception as exc:
+        msg_ = bot.send_message(a_uid, msg_text+f"\nMarkdown error\n{exc}", parse_mode=None, reply_markup=reply_markup)
+
+    return msg_
 
 from creazione_immagini import Grafico_peso, Grafico_4sett, Grafico_mensile, schedaIndex_to_image, Grafico_radarScheda
-from clone_db import clone_database
+# from clone_db import clone_database
 
 import copy
 
@@ -46,7 +54,7 @@ import calendar
 
 import json
 
-from os import system
+# from os import system
 
 import traceback
 import sys
@@ -55,7 +63,7 @@ import shutil
 
 from pushover import Client
 
-from replit import db
+# from replit import db
 from keep_alive import keep_alive
 
 keep_alive()
@@ -114,63 +122,120 @@ all_commands_dict = {k: k for k in all_commands_dict}
 
 # Manipolazione database #
 
+def db_insert(indexers, val, mode="="):
+    if type(indexers) != list:
+        indexers = [indexers]
+    err = None
+    v = db
 
-def db_insert():
+    for i, indexer in enumerate(indexers):
+        if type(v) == dict:
+            if indexer in v:
+                v = v[indexer]
+            else:
+                err = f"KeyError: {indexer} isn't a key in {v}"
+                break
+        elif type(v) == list:
+            if type(indexer) == str:
+                err = f"IndexError: using a string as a list index (idx: {indexer}, list: {v})"
+                break
+            elif indexer < len(v):
+                v = v[indexer]
+            else:
+                err = f"IndexError: {indexer}th index is out of range in {v}"
+                break
+        else:
+            err = f"TypeError: {indexer} was used as index for {v}"
+            break
+
+    if err:
+        err = "Error in db_insert function:\n" + err
+        bot_trySend(msg_text=err)
+    else:
+        indexing_str = "".join([f"['{i}']" if type(i) == str else f"[{i}]" for i in indexers])
+        if mode != "append":
+            exec(f"db{indexing_str} {mode} val",
+                 {"db": db, "val": val})
+        else:
+            exec(f"db{indexing_str}.append(val)",
+                 {"db": db, "val": val})
+
+        with open(f"{db_file}", "w") as file:
+            json.dump(db, file, indent=4)
+
+def preserve_msg(msg):
+    db_insert("preserved_msgIds", msg.message_id, mode="append")
 
 
-actual_environment = True  # questa variabile è True se stiamo usando il bot da replit e False se lo stiamo facendo da pycharm
+actual_environment = True  # questa variabile è True se stiamo usando il bot da pythonanywhere e False se lo stiamo facendo da pycharm
 # db["schede"]["2023-06-06"]["schiena"][1][3] = 4
 
-if db == {}:
-    addTo_botStarted("Running in artificial environment")
-    file = open("temporanei/cloned_db.json", "r")
-    db = json.load(file)
-    clonedDb_at_startup = db
-    actual_environment = False
-else:
-    clonedDb_at_startup = clone_database(db)
-    addTo_botStarted("Running in Replit")
+import psutil
+import platform
+# pip install py-cpuinfo
+import cpuinfo
+import socket
 
+def get_size(bytes, suffix="B"):
+    """
+    Scale bytes to its proper format
+    e.g:
+        1253656 => '1.20MB'
+        1253656678 => '1.17GB'
+    """
+    factor = 1024
+    for unit in ["", "K", "M", "G", "T", "P"]:
+        if bytes < factor:
+            return f"{bytes:.2f}{unit}{suffix}"
+        bytes /= factor
+
+uname = platform.uname()
+cpufreq = psutil.cpu_freq()
+svmem = psutil.virtual_memory()
+sys_info_msg = f"""
+<b>System Information</b>
+System: {uname.system}
+Node Name: {uname.node}
+Release: {uname.release}
+Version: {uname.version}
+Machine: {uname.machine}
+Processor: {uname.processor}
+Processor: {cpuinfo.get_cpu_info()['brand_raw']}
+Ip-Address: {socket.gethostbyname(socket.gethostname())}
+
+<b>CPU Info</b>
+Physical cores: {psutil.cpu_count(logical=False)}
+Total cores: {psutil.cpu_count(logical=True)}
+Max Frequency: {cpufreq.max:.2f}Mhz
+Min Frequency: {cpufreq.min:.2f}Mhz
+Current Frequency: {cpufreq.current:.2f}Mhz
+Total CPU Usage: {psutil.cpu_percent()}%
+
+"<b>Memory Information</b>
+Total: {get_size(svmem.total)}
+Available: {get_size(svmem.available)}
+Used: {get_size(svmem.used)}
+Percentage: {svmem.percent}%
+"""
+
+if uname.node == "iMac-2.local":
+    actual_environment = False
+    db_file = "db_test.json"
+    addTo_botStarted("Running in *test* environment")
+else:
+    actual_environment = True
+    db_file = "db.json"
+    addTo_botStarted("Running in *real* environment")
+
+db = json.load(open(db_file, "r"))
+startup_db = copy.deepcopy(db)
+
+bot_trySend(sys_info_msg, parse_mode="HTML")
 end_sleepTime = 40 if actual_environment else 5  # secondi di sleep alla fine dell'allenamento
 
 key = "aumenti_msgScheda"
 if key not in db.keys():
     db[key] = {"addominali": [], "pettobi": [], "schiena": [], "spalletri": [], "altro": []}
-
-
-
-# keys = [db["allenamenti"][i][0] for i in range(len(db["allenamenti"]))]
-# a_dict = {key: db["allenamenti"][i] for i, key in enumerate(keys)}
-# keys.sort()
-# db["allenamenti"] = [a_dict[key] for key in keys]
-# ic(db["allenamenti"])
-# stop = 1 / 0
-
-# sostituzione db con un file json:
-# if db == {}:
-# with open("CLONE.json", "r") as file:
-#     f_db = json.load(file)
-# db["new_training_data"] = f_db["new_training_data"]
-
-
-# db["workout_count"] = {"pettobi":0, "spalletri": 0, "addominali": 0, "schiena": 0, "altro": 0}
-# db["data_2volte"] = {"pettobi": None, "spalletri": None, "addominali": None, "schiena": None, "altro": None}
-# db["dizAll_2volte"] = {"pettobi": None, "spalletri": None, "addominali": None, "schiena": None, "altro": None}
-
-# db["Cycle_monthLever"] = False
-# db["Cycle_4settLever"] = False
-# db["Cycle_dailyLever"] = False
-# db["calendario"] = [2023, 2]
-# db["data_prossima_stat_m"] = [2023, 2, 28]
-# db["NNs_names"]["hpo_model"]["name"] = "Regularized Hyperparameter-Optimized Character CNN"
-# db["NNs_names"]["hpo_model"]["version"] = 1.0
-
-
-def db_print():
-    print("#"*10 + "   DATABASE   " + "#"*10)
-    for db_key in db:
-        print(db_key, db[db_key], "\n")
-
 
 
 # DICHIARAZIONI
@@ -237,22 +302,9 @@ keyb_addominali_n, keyb_pettobi_n, keyb_schiena_n, keyb_spalletri_n, keyb_altro_
 keyb_peso = {"addominali": keyb_addominali, "pettobi": keyb_pettobi, "schiena": keyb_schiena, "spalletri": keyb_spalletri, "altro": keyb_altro}
 keyb_names = {"addominali": keyb_addominali_n, "pettobi": keyb_pettobi_n, "schiena": keyb_schiena_n, "spalletri": keyb_spalletri_n, "altro": keyb_altro}
 
-
 [keyboard_workouts.add(i) for i in nomi_workout]
 keyboard_done.row("/done")
 keyboard_done.row("/sw", "/p", "/ese", "/n")
-
-# CONVERSIONE
-# riordinazione "allenamenti"
-# db["TP_data"] = []
-#
-# db["w_sec_taken"] = {}
-# for w in workouts_lists.keys():
-#     db["w_sec_taken"][w] = list(reversed(db["prev_tempo"][w]))
-#     """
-#     db["w_sec_taken"] = {workout: [[tempo impiegato 1° serie dell'allenmento meno recente, = ma 2° serie, ...],
-#                                          [tempo impiegato 1° serie dell'allenamento dopo lo scorso, = ma 2° serie, ...]]}
-#     """
 
 
 # time prediction data di questo workout, verrà aggiunta al db
@@ -270,11 +322,9 @@ def get_dataSchedaAttuale():
     return date_schede[-1]
 
 
-# db_prev_tempo = copy.deepcopy(clonedDb_at_startup["prev_tempo"])
-
 prev_tempo = {}
 for w in workouts_lists.keys():
-    prev_tempo[w] = clonedDb_at_startup["w_sec_taken"][w][:3]
+    prev_tempo[w] = startup_db["w_sec_taken"][w][:3]
 
     diff = len(prev_tempo[w]) - 3
     if diff < 0 and prev_tempo[w]:
@@ -286,7 +336,7 @@ avg_adj_prev_tempo = copy.deepcopy(workouts_lists)   # avg: è la media degli ul
     # degli scorsi allenamenti
 
 global_dict["data_scheda_attuale"] = get_dataSchedaAttuale()
-diz_all = clonedDb_at_startup["schede"][global_dict["data_scheda_attuale"]]
+diz_all = startup_db["schede"][global_dict["data_scheda_attuale"]]
 
 # FUNZIONI DIZ ALL ECC
 
@@ -372,7 +422,7 @@ def inizializzazione(workout):
             if prev_tempo[workout]:  # se non è []
                 # serve in caso ci fossero errori tra prev_tempo nel db e numero di serie totali, di norma non dovrebbe succedere ma è successo ed è un easy fix
                 if len(db["w_sec_taken"][workout][0]) < serie_count+1:
-                    [db["w_sec_taken"][workout][i].append(100) for i in range(3)]
+                    [db_insert(["w_sec_taken", workout, i], 100, mode="append") for i in range(len(db["w_sec_taken"][workout]))]
 
                 avg_adj_prev_tempo[workout].append(sum([prev_tempo[workout][i][serie_count] for i in range(3)]) / 3)
 
@@ -472,7 +522,8 @@ def apply_modification(text, workout, i_ese, i_column, creazione_scheda=False):
     text = text[0].upper() + text[1:] if i_column == 1 else text  # .capitalize() toglieva l'upper da tutto e lo metteva solo all'inizio
 
     if not creazione_scheda:  # se siamo in fase di creaizone scheda non viene applicata al database
-        db["schede"][global_dict["data_scheda_attuale"]][workout][i_ese][i_column] = text
+        db_insert(["schede", global_dict["data_scheda_attuale"], workout, i_ese, i_column], text)
+        # db["schede"][global_dict["data_scheda_attuale"]][workout][i_ese][i_column] = text
 
     if creazione_scheda:
         creazioneScheda_undo["previous_val"] = diz_all[workout][i_ese][i_column]  # salviamo il testo che c'era prima, in questo modo in caso di errori possiamo facilmente
@@ -537,7 +588,7 @@ def messaggio_scheda(workout):
     circle_lever = True
 
     cloned_aum_msgScheda = [{k: v for k, v in aum_dict.items()} for aum_dict in db["aumenti_msgScheda"][workout]]
-    aums = [i | {"w_distance": clonedDb_at_startup["workout_count"][workout] - i["w_count"]} for i in cloned_aum_msgScheda]
+    aums = [i | {"w_distance": startup_db["workout_count"][workout] - i["w_count"]} for i in cloned_aum_msgScheda]
     aums = [i for i in aums if i["w_distance"] < 3]  # 0: questo workout, 1: scorso workout, 2: workout prima dello scorso
 
     ese_idxs = [i["ese_idx"] for i in aums]
@@ -633,13 +684,8 @@ def fine_allenamento(workout, uid, score=False):
                 # esercizio sia uguale a quella del penultimo
             prev_tempo_building[workout] = [i for i in prev_tempo_building[workout] if i != 0]
 
-            db["w_sec_taken"][workout].append(prev_tempo_building[workout])
-
-            # if global_dict["creazione_scheda"] or db["workout_count"][workout] == 1:  # all'inizio e al primo allenamento lo compiliamo copiando prev tempo building 3 volte.
-            #     # db["prev_tempo"][workout] = [prev_tempo_building[workout] for _ in range(3)]
-            # else:
-            #     db["prev_tempo"][workout] = [db["prev_tempo"][workout][i] for i in [-1, 0, 1]]
-            #     db["prev_tempo"][workout][0] = prev_tempo_building[workout]
+            db_insert(["w_sec_taken", workout], prev_tempo_building[workout], mode="append")
+            # db["w_sec_taken"][workout].append(prev_tempo_building[workout])
 
         else:  # se invece abbiamo usato /notime lo scriviamo nel msg_oggi
             msg_oggi += " \(/notime\)"
@@ -648,39 +694,42 @@ def fine_allenamento(workout, uid, score=False):
         msg_oggi = f"Tempo impiegato: *N/A*\nFine: {fine_str}"
 
     # parte di saving dizall 2 volte e conteggio workout
-    db["workout_count"][workout] += 1
+    db_insert(["workout_count", workout], 1, mode="+=")
+    # db["workout_count"][workout] += 1
 
     if db["workout_count"][workout] == 2:
-        db["data_2volte"][workout] = ora_eu_iso
+        db_insert(["data_2volte", workout], ora_eu_iso)
+        # db["data_2volte"][workout] = ora_eu_iso
 
-        if actual_environment:
-            db["dizAll_2volte"][workout] = clone_database(db)["schede"][global_dict["data_scheda_attuale"]][workout]
-        else:
-            db["dizAll_2volte"][workout] = copy.deepcopy(db["schede"][global_dict["data_scheda_attuale"]][workout])
+        db_insert(["dizAll_2volte", workout],
+                  copy.deepcopy(db["schede"][global_dict["data_scheda_attuale"]][workout]))
 
     # msg
     msg_ = bot.send_message(chat_id=uid, text= f"🔴 Allenamento finito: *{esercizi_title_dict[workout]}:* \({db['workout_count'][workout]}ª volta\)\n\n"
                                                f"{msg_fine}`Oggi`\n{msg_oggi}",
                             reply_markup=keyboard_start, parse_mode=pm["mdV2"])
-    db["preserved_msgIds"].append(msg_.message_id)
+    db_insert("preserved_msgIds", msg_.message_id, mode="append")
+    # db["preserved_msgIds"].append(msg_.message_id)
 
     # eliminazione messaggi
     for messaggio in range(global_dict["start_message_id"], msg_.message_id):
         bot_tryDelete(uid, messaggio)
 
-    db["fine_allenamenti"][workout] = [db["fine_allenamenti"][workout][i] for i in [-1,0,1,2]]
+    db_insert(["fine_allenamenti", workout], [db["fine_allenamenti"][workout][i] for i in [-1,0,1,2]])
     str_date = f"{int(ora_eu_iso[8:10])} {m_to_mesi[ora_eu_iso[5:7]]}"
-    db["fine_allenamenti"][workout][0] = f"`{str_date}`\n{msg_oggi}"
+    db_insert(["fine_allenamenti", workout, 0], f"`{str_date}`\n{msg_oggi}")
+    # db["fine_allenamenti"][workout][0] = f"`{str_date}`\n{msg_oggi}"
 
     # ultimo allenamento
-    db["allenamenti"].append([ora_EU(isoformat=True), workout])
+    db_insert("allenamenti", [ora_EU(isoformat=True), workout], mode="append")
 
     global_dict["creazione_scheda"] = True
     sequences_usermode[uid] = "none"
 
 def saveSend_TP(workout):
     TP_data["current"] = prev_tempo_building[workout]
-    db["TP_data"].append(TP_data)
+    db_insert("TP_data", TP_data, mode="append")
+    # db["TP_data"].append(TP_data)
 
     fname = "temporanei/tp_data.json"
     with open(fname, "w") as file:
@@ -728,15 +777,16 @@ def done(msg, workout):
 
 def send_db_json():
     if actual_environment:
-        cloned_db = clone_database(db)
         date = weekday_nday_month_year(ora_EU(), year=True)
         fname = f"db/backup-db_{date}.json"
         with open(fname, "w") as file:
-            json.dump(cloned_db, file, indent=4)
+            json.dump(db, file, indent=4)
 
         sendable_cloned_db = open(fname)
         msg_ = bot.send_document(a_uid, sendable_cloned_db)
-        db["preserved_msgIds"].append(msg_.message_id)
+        preserve_msg(msg_)
+        # db_insert("preserved_msgIds", msg_.message_id, mode="append")
+        # db["preserved_msgIds"].append(msg_.message_id)
 
         return open(fname)
 
@@ -795,14 +845,6 @@ def split_messaggio(uid, string, parse_mode=None):
     else:
         bot.send_message(uid, string, parse_mode=parse_mode)
 
-def bot_trySend(msg_text, reply_markup=None, parse_mode="MarkdownV2"):
-    try:
-        msg_ = bot.send_message(a_uid, msg_text, parse_mode=parse_mode, reply_markup=reply_markup)
-    except Exception as exc:
-        msg_ = bot.send_message(a_uid, msg_text+f"\nMarkdown error\n{exc}", parse_mode=None, reply_markup=reply_markup)
-
-    return msg_
-
 def inline_buttons_creator(raw_buttons, row_width):
     """
     {"texts", ["1","2","3"], "callbacks": ["01","02","03"]} -> keyboard(button(text="1", callback_data="01"), ...)
@@ -852,9 +894,9 @@ def start_training_procedure():
 
     except Exception as exc:
         msg_ = bot.send_message(a_uid, text="L'allenamento del modello non è andato a buon termine:")
-        db["preserved_msgIds"].append(msg_.message_id)
+        preserve_msg(msg_)
         msg_ = traceback_message(exc)
-        db["preserved_msgIds"].append(msg_.message_id)
+        preserve_msg(msg_)
 
 # PRINT
 
@@ -1098,11 +1140,10 @@ def thread_telegram():
                     # se lever_restart è vera, la mettiamo come falsa e riavviamo il bot, quindi torna falsa
                     else:
                         levers_dict["restart"] = False
-                        db["last_msg_id"] = msg_id
 
-                        if not actual_environment:
-                            with open("temporanei/cloned_db.json", "w") as file:
-                                json.dump(db, file, indent=4)
+                        # if not actual_environment:
+                        #     with open("temporanei/cloned_db.json", "w") as file:
+                        #         json.dump(db, file, indent=4)
 
                         os.execv(sys.executable, ["python"] + sys.argv)
 
@@ -1198,7 +1239,7 @@ def thread_telegram():
 
                 # 1 /ARCHIVIO
                 elif msg.text == all_commands_dict["/archivio"]:
-                    date_schede = list(clonedDb_at_startup["schede"].keys())
+                    date_schede = list(startup_db["schede"].keys())
                     date_schede.sort()
                     global_dict["schede_list"] = date_schede
                     raw_buttons = {"texts": [], "callbacks": []}
@@ -1435,17 +1476,26 @@ def thread_telegram():
                         if sequences_usermode[uid] == "/p2":
 
                             # aumento peso per grafici
-                            db["aumenti_peso"].append([ora_EU(isoformat=True),
+                            # db["aumenti_peso"].append([ora_EU(isoformat=True),
+                            #                            vecchio_peso,
+                            #                            msg.text,
+                            #                            nome_ese])
+                            db_insert("aumenti_peso", [ora_EU(isoformat=True),
                                                        vecchio_peso,
                                                        msg.text,
-                                                       nome_ese])
+                                                       nome_ese],
+                                              mode="append")
 
                             # messaggio aumento / diminuizione peso
                             if stringaPeso_to_num(vecchio_peso) < stringaPeso_to_num(msg.text):
                                 reply_msg = f"💹 _{nome_ese}_: {vecchio_peso} *→* {peso_ese}"
-                                db["aumenti_msgScheda"][workout].append({"w_count": db["workout_count"][workout],
-                                                                         "ese_idx": global_dict["idx_es_cambiato"],
-                                                                         "peso": vecchio_peso})
+                                db_insert(["aumenti_msgScheda", workout], {"w_count": db["workout_count"][workout],
+                                                                           "ese_idx": global_dict["idx_es_cambiato"],
+                                                                           "peso": vecchio_peso},
+                                          mode="append")
+                                # db["aumenti_msgScheda"][workout].append({"w_count": db["workout_count"][workout],
+                                #                                          "ese_idx": global_dict["idx_es_cambiato"],
+                                #                                          "peso": vecchio_peso})
 
                             else:
                                 reply_msg = f"🈹 _{nome_ese}_: {vecchio_peso} *→* {peso_ese}"
@@ -1466,10 +1516,11 @@ def thread_telegram():
                                 reply_msg = f"Note di _{nome_ese}_ aggiunte: _{note}_"
 
                         msg_ = bot.send_message(uid, text=reply_msg, parse_mode=pm["md"], reply_markup=keyboard_done)
-                        db["preserved_msgIds"].append(msg_.message_id)
+                        preserve_msg(msg_)
 
                         # nuovi dati per il modello
-                        db["new_training_data"].append([msg.text, modifiche_dict[tipo_modifica]["label"]])
+                        db_insert("new_training_data", [msg.text, modifiche_dict[tipo_modifica]["label"]], mode="append")
+                        # db["new_training_data"].append([msg.text, modifiche_dict[tipo_modifica]["label"]])
 
                         sequences_usermode[uid] = "none"
 
@@ -1484,13 +1535,17 @@ def thread_telegram():
                         for ese in db["schede"][global_dict["data_scheda_attuale"]][workout]:
                             for i in [1, 2, 4, 5]: # solo gli index a cui viene applicato il ML
                                 if i == 1 and "° Esercizio" not in ese[i]:
-                                    db["new_training_data"].append([ese[i], "nomi"])
+                                    # db["new_training_data"].append([ese[i], "nomi"])
+                                    db_insert("new_training_data", [ese[i], "nomi"], mode="append")
                                 elif i == 2 and ese[i] != "/":
-                                    db["new_training_data"].append([ese[i], "reps"])
+                                    # db["new_training_data"].append([ese[i], "reps"])
+                                    db_insert("new_training_data", [ese[i], "reps"], mode="append")
                                 elif i == 4 and ese[i] != "/":
-                                    db["new_training_data"].append([ese[i], "peso"])
+                                    # db["new_training_data"].append([ese[i], "peso"])
+                                    db_insert("new_training_data", [ese[i], "peso"], mode="append")
                                 elif i == 5 and ese[i] != None:
-                                    db["new_training_data"].append([ese[i], "note"])
+                                    # db["new_training_data"].append([ese[i], "note"])
+                                    db_insert("new_training_data", [ese[i], "note"], mode="append")
 
                         fine_allenamento(usermode[uid], uid)
                         saveSend_TP(workout)
@@ -1570,10 +1625,12 @@ def thread_telegram():
                     if real_num:
                         peso_float = float(msg.text.replace(",", "."))
                         data = ora_EU()
-                        db["peso_bilancia"].append([data.isoformat(), peso_float])
+                        # db["peso_bilancia"].append([data.isoformat(), peso_float])
+                        db_insert("peso_bilancia", [data.isoformat(), peso_float], mode="append")
 
                         msg_ = bot.send_message(msg.chat.id, text=f"✅ Peso segnato con successo ({peso_float}㎏)")
-                        db["preserved_msgIds"].append(msg_.message_id)
+                        preserve_msg(msg_)
+                        # db["preserved_msgIds"].append(msg_.message_id)
                     else:
                         bot.send_message(msg.chat.id, text="Il format da seguire per registrare il peso è: <code>NN.NN</code> o <code>NN,NN</code>", parse_mode=pm["HTML"])
 
@@ -1624,7 +1681,7 @@ def thread_telegram():
                                    S_nomi =[diz_all[workout][i][1] for i in range(n_ese)],
                                    S_reps =[diz_all[workout][i][2] for i in range(n_ese)],
                                    S_serie=[diz_all[workout][i][3] for i in range(n_ese)],
-                                   ultimi_allenamenti=clonedDb_at_startup["w_sec_taken"][workout],
+                                   ultimi_allenamenti=startup_db["w_sec_taken"][workout],
                                    current=None)
 
                 # NUOVA SCHEDA
@@ -1650,9 +1707,12 @@ def thread_telegram():
                     bot.delete_message(uid, msg_clessidra.message_id)
 
                     # stats per radar graph
-                    db["workout_count"][workout] = 0
-                    db["data_2volte"][workout] = None
-                    db["dizAll_2volte"][workout] = None
+                    db_insert(["workout_count", workout], 0)
+                    db_insert(["data_2volte", workout], None)
+                    db_insert(["dizAll_2volte", workout], None)
+                    # db["workout_count"][workout] = 0
+                    # db["data_2volte"][workout] = None
+                    # db["dizAll_2volte"][workout] = None
 
                     # messaggio di aiuto e messaggio scheda
                     bot.send_message(uid, text="Info sulla creazione scheda:\n"
@@ -1663,7 +1723,8 @@ def thread_telegram():
                                                "•  All'ultima serie dell'ultimo esercizio, dopo aver fatto tutte le modifiche, fare /fine, se non si fa questo ultimo passaggio "
                                                "nessuna modifica viene applicata", reply_markup=keyboard_done)
 
-                    db["data_cambioscheda"].append(ora_EU(isoformat=True))
+                    # db["data_cambioscheda"].append(ora_EU(isoformat=True))
+                    db_insert("data_cambioscheda", ora_EU(isoformat=True), mode="append")
                     msg_scheda = bot_trySend(f"{messaggio_scheda(workout)}")
                     global_dict["msg_scheda"] = msg_scheda.message_id
 
@@ -1672,11 +1733,15 @@ def thread_telegram():
         elif code == "NUOV":
             # creazione struttura nuova scheda nel db
             YYYY_MM_DD = str(ora_EU())[:10]
-            db["schede"][YYYY_MM_DD] = dict(addominali=strutturaBase_dizAll, pettobi=strutturaBase_dizAll, schiena=strutturaBase_dizAll,
-                                            spalletri=strutturaBase_dizAll, altro=strutturaBase_dizAll)
+            db_insert(["schede", YYYY_MM_DD],
+                      dict(addominali=strutturaBase_dizAll, pettobi=strutturaBase_dizAll, schiena=strutturaBase_dizAll,
+                           spalletri=strutturaBase_dizAll, altro=strutturaBase_dizAll))
+            # db["schede"][YYYY_MM_DD] = dict(addominali=strutturaBase_dizAll, pettobi=strutturaBase_dizAll, schiena=strutturaBase_dizAll,
+            #                                 spalletri=strutturaBase_dizAll, altro=strutturaBase_dizAll)
             for workout in lista_es_simple:
                 # reset prev tempo
-                db["w_sec_taken"][workout] = []
+                # db["w_sec_taken"][workout] = []
+                db_insert(["w_sec_taken", workout], [])
 
             global_dict["data_scheda_attuale"] = get_dataSchedaAttuale()
             levers_dict["restart"] = True
@@ -1685,7 +1750,8 @@ def thread_telegram():
             levers_dict["radar_graph"] = True
 
             # db data cambioscheda
-            db["data_cambioscheda"].append(ora_EU(isoformat=True))
+            # db["data_cambioscheda"].append(ora_EU(isoformat=True))
+            db_insert("data_cambioscheda", ora_EU(isoformat=True), mode="append")
 
             bot.send_message(uid, text="Scrivere /start per iniziare a compilare i nuovi workout", parse_mode=pm["md"])
 
@@ -1717,11 +1783,12 @@ def thread_telegram():
                 else:
                     msg_clessidra = bot.send_message(uid, text="⏳")
 
-                    loaded_img = schedaIndex_to_image(clonedDb_at_startup["schede"][scheda_YYYY_MM_DD], scheda_YYYY_MM_DD)
+                    loaded_img = schedaIndex_to_image(startup_db["schede"][scheda_YYYY_MM_DD], scheda_YYYY_MM_DD)
 
                     bot.delete_message(uid, msg_clessidra.message_id)
                     msg_ = bot.send_document(uid, loaded_img)
-                    db["preserved_msgIds"].append(msg_.message_id)
+                    preserve_msg(msg_)
+                    # db["preserved_msgIds"].append(msg_.message_id)
 
                 global_dict["callback_antiSpam"] = True  # ha la stessa funzionalità di callback_antiSpam
 
@@ -1760,7 +1827,7 @@ while True:
                 fname, msg = Grafico_peso(db["peso_bilancia"], global_dict["num_months"])
                 img = open(fname, "rb")
                 msg_ = bot.send_photo(a_uid, img, caption=msg, parse_mode=pm["HTML"])
-                db["preserved_msgIds"].append(msg_.message_id)
+                preserve_msg(msg_)
                 sequences_usermode[a_uid] = "none"
 
             except Exception as exc:
@@ -1802,13 +1869,16 @@ while True:
                 for msg_id in range(l_msgId + 1, clear_msg.message_id + 1):
                     bot_tryDelete(a_uid, msg_id)
                 pass
-                db["latest_msgId"] = clear_msg.message_id
+                # db["latest_msgId"] = clear_msg.message_id
+                db_insert("latest_msgId", clear_msg.message_id)
+
 
             # TRAINING MODELLO
             if len(db["new_training_data"]) > 50:
                 start_training_procedure()
 
-            db["Cycle_dailyLever"] = False
+            # db["Cycle_dailyLever"] = False
+            db_insert("Cycle_dailyLever", False)
 
 
         # GRAFICO 4 SETTIMANE
@@ -1826,30 +1896,39 @@ while True:
 
                 msg, img, sum_y_allenamenti, sum_y_addominali, sum_y_aumenti_peso = Grafico_4sett(db, data_prossima_stat, somma_numeri_in_stringa, m_to_mesi)
                 msg_ = bot.send_photo(a_uid, img, caption=msg, parse_mode=pm["HTML"])
-                db["preserved_msgIds"].append(msg_.message_id)
+                # db["preserved_msgIds"].append(msg_.message_id)
+                preserve_msg(msg_)
 
                 # DB
                 # settiamo la data della prossima data nel databse
-                db["data_prossima_stat"] = (data_prossima_stat + dt.timedelta(days=28)).isoformat()
+                # db["data_prossima_stat"] = (data_prossima_stat + dt.timedelta(days=28)).isoformat()
+                db_insert("data_prossima_stat", (data_prossima_stat + dt.timedelta(days=28)).isoformat())
 
                 # salviamo nel database i dati per il prossimo grafico mensile
-                db["ultima_stat"]["y_allenamenti"] = sum_y_allenamenti
-                db["ultima_stat"]["y_addominali"] = sum_y_addominali
-                db["ultima_stat"]["y_aumenti_peso"] = sum_y_aumenti_peso
+                db_insert(["ultima_stat", "y_allenamenti"], sum_y_allenamenti)
+                db_insert(["ultima_stat", "y_addominali"], sum_y_allenamenti)
+                db_insert(["ultima_stat", "y_aumenti_peso"], sum_y_aumenti_peso)
+                # db["ultima_stat"]["y_allenamenti"] = sum_y_allenamenti
+                # db["ultima_stat"]["y_addominali"] = sum_y_addominali
+                # db["ultima_stat"]["y_aumenti_peso"] = sum_y_aumenti_peso
 
-                db["Cycle_4settLever"] = False
+                db_insert("Cycle_4settLever", False)
+                # db["Cycle_4settLever"] = False
 
             except Exception as exc:
-                msg_ = bot.send_message(a_uid, f"C'è stato un errore Nìnel grafico delle 4 settimane")
-                db["preserved_msgIds"].append(msg_.message_id)
+                msg_ = bot.send_message(a_uid, f"C'è stato un errore nel grafico delle 4 settimane")
+                preserve_msg(msg_)
+                # db["preserved_msgIds"].append(msg_.message_id)
                 msg_ = traceback_message(exc)
-                db["preserved_msgIds"].append(msg_.message_id)
+                preserve_msg(msg_)
+                # db["preserved_msgIds"].append(msg_.message_id)
 
 
         # ITERAZIONE MENSILE
 
         # se i giorni tra oggi e la data in cui ci sarebbe il prossimo grafico sono meno di 1
-        if (dt.datetime(db["data_prossima_stat_m"][0], db["data_prossima_stat_m"][1], db["data_prossima_stat_m"][2]) - data_oggi).days < 1 and db["Cycle_monthLever"] == True:
+        if (dt.datetime(db["data_prossima_stat_m"][0], db["data_prossima_stat_m"][1], db["data_prossima_stat_m"][2]) - data_oggi).days < 1 \
+                and db["Cycle_monthLever"] == True:
         # if 1 == 1:
 
             try:
@@ -1861,7 +1940,9 @@ while True:
                     fname, msg = res
                     img = open(fname, "rb")
                     msg_ = bot.send_photo(a_uid, img, caption=msg, parse_mode=pm["HTML"])
-                    db["preserved_msgIds"].append(msg_.message_id)
+                    # db["preserved_msgIds"].append(msg_.message_id)
+                    preserve_msg(msg_)
+                    # db_insert("preserved_msgIds", msg_.message_id, mode="append")
 
                 else:
                     bot.send_message(a_uid, f"Nessun pesamento negli ultimi {months} mesi")
@@ -1875,32 +1956,40 @@ while True:
 
                 msg, img = Grafico_mensile(db, somma_numeri_in_stringa, m_to_mesi, ora_EU, actual_environment)
                 msg_ = bot.send_photo(a_uid, img)
-                db["preserved_msgIds"].append(msg_.message_id)
+                # db_insert("preserved_msgIds", msg_.message_id, mode="append")
+                preserve_msg(msg_)
+                # db["preserved_msgIds"].append(msg_.message_id)
                 msg_ = bot.send_message(a_uid, msg, parse_mode=pm["HTML"])
-                db["preserved_msgIds"].append(msg_.message_id)
+                # db_insert("preserved_msgIds", msg_.message_id, mode="append")
+                preserve_msg(msg_)
+
+                # db["preserved_msgIds"].append(msg_.message_id)
 
                 # DB
                 calendario_list = db["calendario"]
-
                 calendario_list[1] += 1
                 if calendario_list[1] == 13:
                     calendario_list[1] = 1
                     calendario_list[0] += 1
 
-                db["data_prossima_stat_m"] = [calendario_list[0], calendario_list[1], calendar.monthrange(calendario_list[0], calendario_list[1])[1]]
-                db["Cycle_monthLever"] = False
+                db_insert("data_prossima_stat_m", [calendario_list[0], calendario_list[1], calendar.monthrange(calendario_list[0], calendario_list[1])[1]])
+                # db["data_prossima_stat_m"] = [calendario_list[0], calendario_list[1], calendar.monthrange(calendario_list[0], calendario_list[1])[1]]
+                db_insert("Cycle_monthLever", False)
+                # db["Cycle_monthLever"] = False
 
             except Exception as exc:
                 msg_ = bot.send_message(a_uid, f"C'è stato un errore nell'iterazione mensile")
-                db["preserved_msgIds"].append(msg_.message_id)
+                # db["preserved_msgIds"].append(msg_.message_id)
+                preserve_msg(msg_)
                 msg_ = traceback_message(exc)
-                db["preserved_msgIds"].append(msg_.message_id)
+                preserve_msg(msg_)
+                # db["preserved_msgIds"].append(msg_.message_id)
 
-        db["Cycle_processLever"] = False  # false vuol dire che il processo è finito
+        db_insert("Cycle_processLever", False) # false vuol dire che il processo è finito
         # reboot alla fine
-        if not actual_environment:
-            with open("temporanei/cloned_db.json", "w") as file:
-                json.dump(db, file, indent=4)
+        # if not actual_environment:
+        #     with open("temporanei/db.json", "w") as file:
+        #         json.dump(db, file, indent=4)
 
         os.execv(sys.executable, ["python"] + sys.argv)
 

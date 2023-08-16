@@ -1,7 +1,52 @@
 # coding: utf8
+import copy
+
 from funzioni import ora_EU, ic
 
 from creazione_immagini import days_to_mesiSett
+
+
+a = [1,2,3]
+exec("a[1] = 4", )
+ic(a)
+
+db = {"1": {"2": 2, "3": [31, 32, 33]}}
+
+def db_insert(indexers, val):
+    err = None
+
+    v = db
+    for i, indexer in enumerate(indexers):
+        if type(v) == dict:
+            if indexer in v:
+                v = v[indexer]
+            else:
+                err = f"KeyError: {indexer} isn't a key in {v}"
+                break
+        elif type(v) == list:
+            if type(indexer) == str:
+                err = f"IndexError: using a string as a list index (idx: {indexer}, list: {v})"
+                break
+            elif indexer < len(v):
+                v = v[indexer]
+            else:
+                err = f"IndexError: {indexer}th index is out of range in {v}"
+                break
+
+        else:
+            err = f"TypeError: {indexer} was used as index for {v}"
+            break
+
+    if err:
+        err = "Error in db_insert function:\n" + err
+        print(err)
+    else:
+        indexing_str = "".join([f"['{i}']" if type(i) == str else f"[{i}]" for i in indexers])
+        exec(f"db{indexing_str} = val", {"db": db, "val": val})
+
+
+db_insert(["1", "3", 1], "aa")
+ic(db)
 
 a = {"1": 1}
 
