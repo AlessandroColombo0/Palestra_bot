@@ -41,8 +41,9 @@ def bot_trySend(msg_text, reply_markup=None, parse_mode="MarkdownV2"):
 
     return msg_
 
+# IMPORTS
+
 from creazione_immagini import Grafico_peso, Grafico_4sett, Grafico_mensile, schedaIndex_to_image, Grafico_radarScheda
-# from clone_db import clone_database
 
 import copy
 
@@ -62,16 +63,16 @@ import os
 import shutil
 
 from pushover import Client
+# nota: la versione 1.3 non funzionava (diceva che la richiesta per mandarenotifiche era malformata) quindi ho scaricato la 1.2.2
+# oppure c'erano solo 4 versioni e quelle più recenti (non troppo vecchie da non funzinoare) non venivano installate per un problema con setuptools, quindi ho dovuto fare pip
+    # install setuptools<58.0.0
 
 # from replit import db
-from keep_alive import keep_alive
-
-keep_alive()
-
+# from keep_alive import keep_alive
+# keep_alive()
 
 # push notifier
 client = Client("u1rztsuw5cguaeyb1y8baimqb2pw4g", api_token="a2sr9qhf5x6t2q9vfhhervbrfhq651")
-# nota: la versione 1.3 non funzionava (diceva che la richiesta per mandarenotifiche era malformata) quindi ho scaricato la 1.2.2
 
 
 # VARIBILI  #
@@ -173,8 +174,6 @@ actual_environment = True  # questa variabile è True se stiamo usando il bot da
 import psutil
 import platform
 # pip install py-cpuinfo
-import cpuinfo
-import socket
 
 def get_size(bytes, suffix="B"):
     """
@@ -200,8 +199,6 @@ Release: {uname.release}
 Version: {uname.version}
 Machine: {uname.machine}
 Processor: {uname.processor}
-Processor: {cpuinfo.get_cpu_info()['brand_raw']}
-Ip-Address: {socket.gethostbyname(socket.gethostname())}
 
 <b>CPU Info</b>
 Physical cores: {psutil.cpu_count(logical=False)}
@@ -1793,10 +1790,7 @@ def thread_telegram():
                 global_dict["callback_antiSpam"] = True  # ha la stessa funzionalità di callback_antiSpam
 
 
-
-
     #################################
-
 
     bot.set_update_listener(listener)
 
@@ -1849,8 +1843,6 @@ while True:
 
         time.sleep(1)
 
-    # time.sleep(5)
-    # print("time sleep finished")
     n_ora = numero_ora()
     sec_22 = 60*60*22
 
