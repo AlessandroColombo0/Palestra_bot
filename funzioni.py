@@ -3,13 +3,18 @@
 import datetime as dt
 import pytz
 
-
 from icecream import ic
+
 wrap_width = 195
+
+
 def to_string(obj):
     """ obj: contenuto di quello che viene printato, es: ic("aaa"), "aaa" è obj, ma non è per forza una stringa, può essere anhce un numero, lista, ecc. """
+
     def element_wrap(wrap_width, text, key=None):
         # se ha una key viene trattato come un dizionario
+        text_type = type(text)
+        text = str(text)
         string_split = text.split(" ")
         str_split_lengths = [len(i) + 1 for i in string_split]
         newline_idxs = []
@@ -26,12 +31,12 @@ def to_string(obj):
 
         more_newlines = True if len(newline_idxs) > 0 else False
 
-        for i, split_ in enumerate(string_split):
+        for i, split_, in enumerate(string_split):
             if more_newlines and i == newline_idxs[newline_i]:
                 if not key:  # non dizionario
                     new_str += "\n" + " " + split_ + " "
                 else:  # dizionario
-                    new_str += "\n" + " " * (len(key) + 6) + split_ + " "
+                    new_str += "\n" + " " * (len(str(key)) + 6) + split_ + " "
 
                 newline_i += 1
                 if newline_i >= len(newline_idxs):
@@ -40,22 +45,31 @@ def to_string(obj):
             else:
                 new_str += split_ + " "
 
-        return new_str
+        if text_type == str:
+            return f"'{new_str}'"
+        else:
+            return new_str
 
     if type(obj) == dict:
         new_str = "{"
         for key, value in obj.items():
             dict_wrap_width = wrap_width - (len(str(key)) + 5)
-            new_value = element_wrap(dict_wrap_width, str(value), key=key)
+            new_value = element_wrap(dict_wrap_width, value, key=key)
 
-            q = '"' if type(key) == str else ''
-            new_str += f'{q}{key}{q}: {new_value[:-1]},\n '
+            q = "'" if type(key) == str else ""
+            if new_value[-1] == "'":
+                nv = new_value[:-2] + new_value[-1]
+            else:
+                nv = new_value[:-1]
+
+            new_str += f'{q}{key}{q}: {nv},\n '
         new_str = new_str[:-3] + "}"
 
     else:
-        new_str = element_wrap(wrap_width, str(obj))
+        new_str = element_wrap(wrap_width, obj)
 
     return new_str
+
 ic.configureOutput(prefix="> ", includeContext=True, argToStringFunction=to_string)
 
 

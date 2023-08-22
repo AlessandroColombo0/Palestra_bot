@@ -6,6 +6,66 @@ from funzioni import ora_EU, ic
 from creazione_immagini import days_to_mesiSett
 
 
+a = 6
+b = 3
+
+if 2 < b < a:
+    print(b)
+
+7/0
+
+class aa():
+    def __init__(self, num):
+        self.num = num
+        self.a = self.motti(1)
+
+    def motti(self, num):
+        return num + 1
+
+    def __str__(self):
+
+        return f"aa object: {self.num}"
+
+    def restart(self):
+        globals()["a"] = aa(2)
+
+a = aa(3)
+ic(a)
+
+a.restart()
+
+ic(a)
+
+def b():
+    b = a
+    ic(b)
+
+    globals()["a"] = "c"
+
+    return a
+
+
+
+
+c = b()
+ic(a)
+ic(c)
+7/0
+
+
+
+
+
+def func():
+    # global alala
+    globals()["alala"] = 3
+func()
+ic(alala)
+
+
+
+7/0
+
 a = [1,2,3]
 exec("a[1] = 4", )
 ic(a)

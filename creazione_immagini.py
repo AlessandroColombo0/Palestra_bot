@@ -1720,7 +1720,6 @@ def Grafico_radarScheda(dizAll_inizio, dizAll_fine, date_workout, count_workout)
             radarGraph_diz[workout][ese[1]] = [stringaPeso_to_num(dizAll_inizio[workout][i_ese][4]), stringaPeso_to_num(ese[4])]
     """ radarGraph_diz = {workout1: {nome_esercizio1: [peso_dopo_seconda_settimana, peso_al_cambio_scheda], ...}, workout2: ...} """
 
-
     # PLOT
 
     fig = plt.figure(figsize=(7.5, 5*num_workouts))
@@ -1746,8 +1745,6 @@ def Grafico_radarScheda(dizAll_inizio, dizAll_fine, date_workout, count_workout)
         x_radians = np.concatenate((x_radians, [x_radians[0]]))
         nomi_esercizi.append(nomi_esercizi[0])
 
-
-
         ic(date_workout[workout])
         ic(data_oggi)
         # FILL
@@ -1757,7 +1754,6 @@ def Grafico_radarScheda(dizAll_inizio, dizAll_fine, date_workout, count_workout)
         # LEGENDA
                                             #    X,   Y    espressi in percentuale
         ax.legend(frameon=False, bbox_to_anchor=(1.45, 1.25, 0, 0), alignment="right")
-
 
         # BANDE CIRCOLARI Y (KG) E Y LABELS
 
@@ -1858,7 +1854,7 @@ def Grafico_radarScheda(dizAll_inizio, dizAll_fine, date_workout, count_workout)
 
     fig.tight_layout(pad=3)  # fa in modo che i grafici non siano appiccicati
 
-    fname = "tempoeranei/Grafico_schedaWorkout.png"
+    fname = "temporanei/Grafico_schedaWorkout.png"
     plt.savefig(fname, dpi=300)
     img = open(fname, "rb")
 
