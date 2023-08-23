@@ -5,12 +5,18 @@ import psutil
 import platform
 import json
 
+"""
+git reset --hard
+git pull https://github.com/AlessandroColombo0/Palestra_bot.git
+"""
+
 # Telegram setup
 
 # 0: tempo  1: nome  2: reps  3: serie  4: peso  5: note
 TOKEN = "5012282762:AAEew28I_wMj6SJUWs7980BJr_LCXGree7k"
 bot = telebot.TeleBot(TOKEN)
 A_UID = 305444830
+
 
 blank_char = "⠀"
 MD = "Markdown"
@@ -263,7 +269,6 @@ def db_insert(indexers, val, mode="="):
         bot_trySend(msg_text=err)
     else:
         indexing_str = "".join([f"['{i}']" if type(i) == str else f"[{i}]" for i in indexers])
-        ic(indexing_str)
         if mode != "append":
             exec(f"db{indexing_str} {mode} val",
                  {"db": db, "val": val})
@@ -290,17 +295,6 @@ def get_dataSchedaAttuale():
     date_schede = list(db["schede"].keys())
     date_schede.sort()
     return date_schede[-1]
-
-# def escape_dizAll(diz_all_):
-#     """ otteniamo un dizall dove i nomi ese, reps, peso e note sono compatibili con markdown v2 """
-#     for workout, lists in diz_all_.items():
-#         for i, list_ in enumerate(lists):
-#             diz_all_[workout][i][1] = md_v2_replace(diz_all_[workout][i][1])
-#             diz_all_[workout][i][2] = md_v2_replace(diz_all_[workout][i][2])
-#             diz_all_[workout][i][4] = md_v2_replace(diz_all_[workout][i][4])
-#             diz_all_[workout][i][5] = md_v2_replace(diz_all_[workout][i][5])
-#
-#     return diz_all_
 
 def eseSerie_to_timerMsg(diz_all, workout, ese, serie):
     quote = '"'  # usando \" replit aveva problemi nell'interpetazione del codice per qualche motivo
@@ -487,7 +481,6 @@ class Training:
         self.usermode = "none"
         self.sequences_usermode = "none"
         self.fineTimer_msgId = 0
-        self.schedaPrev_msgId = 0
         self.restart_msgId = 0
 
         self.strikethrough_list_msg = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "" "", "", ""]
@@ -725,7 +718,8 @@ class Training:
         if self.restart == False:
 
             if not self.selected_workout:
-                bot_tryDelete(A_UID, self.restart_msgId)
+                if self.restart_msgId != 0:
+                    bot.edit_message_text("⚡️ Bot restarted successfully", A_UID, self.restart_msgId)
 
                 # PARTE DI CREAZIONE MESSAGGIO DI START
                 data, orario = ora_EU(isoformat=True).split("T")
@@ -792,7 +786,7 @@ class Training:
 
         # se lever_restart è vera, la mettiamo come falsa e riavviamo il bot, quindi torna falsa
         else:
-            msg_ = bot_trySend("Restarting...")
+            msg_ = bot_trySend(f"{blank_char}⏳")
             globals()["T"] = Training()
             T.restart_msgId = msg_.message_id
             T.select_workout(msg_id)
@@ -883,9 +877,9 @@ class Training:
 
         # messaggio scheda
         msg_scheda, msg_schedaPrev = self.invia_messaggioScheda(send=True)
-        self.scheda_msgId = msg_scheda.message_id
+        g_dict["scheda_msgId"] = msg_scheda.message_id
         if type(msg_schedaPrev) != str:
-            self.schedaPrev_msgId = msg_schedaPrev.message_id
+            g_dict["schedaPrev_msgId"] = msg_schedaPrev.message_id
 
         # messaggio con timer
         msg_timer = bot_trySend(f"{self.flat_timer_msg_list[w][self.counter]} <b>{self.flat_pause_list[w][self.counter]}</b>")
@@ -906,7 +900,6 @@ class Training:
 
                 # 10 SECONDS WARNING, se mancano 10 secondi:
                 if lever_10_sec == True and refreshed_num_ora > numOra_fineTimer - 9:
-                    # todo togliere <code> <i> ecc dalla notifica
                     noti = remove_html(self.flat_timer_msg_list[w][self.counter])
                     CLIENT.send_message(f"🟡 8 secondi restanti\n{noti}", title="Timer")
                     lever_10_sec = False
@@ -958,7 +951,6 @@ class Training:
                         bot_tryDelete(A_UID, msg_fineTimer.message_id)
 
                         self.end_workout()
-                        self.saveSend_TP()
 
                 elif self.skip == True:
                     self.done(msg)
@@ -979,7 +971,7 @@ class Training:
         bot_tryDelete(uid, msg_id)
         bot_tryDelete(uid, g_dict["scheda_msgId"])
         if self.counter != 0 and not self.creazione_scheda:
-            bot_tryDelete(uid, self.schedaPrev_msgId)
+            bot_tryDelete(uid, g_dict["schedaPrev_msgId"])
         bot_tryDelete(uid, self.fineTimer_msgId)
 
         # PREV TEMPO
@@ -1047,7 +1039,7 @@ class Training:
             msg_oggi = f"Tempo impiegato: <b>{tempo_imp}</b>\nDalle {g_dict['inizioAll_HH_MM_SS'][:-3]} alle {fine_str[:-3]}"
 
             # salvataggio in db di "w_sec_taken"
-            if self.notime == False:
+            if not self.notime:
                 g_dict["continuo2"] = time.perf_counter()
                 self.prev_tempo_building[w][self.counter] = self.prev_tempo_building[w][self.counter - 1]  # facciamo in modo che la durata dell'ultimo
                     # esercizio sia uguale a quella del penultimo
@@ -1066,16 +1058,15 @@ class Training:
 
         if db["workout_count"][w] == 2:
             db_insert(["data_2volte", w], ora_eu_iso)
-            # db["data_2volte"][w] = ora_eu_iso
-
             db_insert(["dizAll_2volte", w], copy.deepcopy(db["schede"][self.data_scheda][w]))
 
         # msg
         msg_ = bot.send_message(chat_id=A_UID, text= f"🔴 Allenamento finito: <b>{ESERCIZI_TITLE_DICT[w]}:</b> ({db['workout_count'][w]}ª volta)\n\n"
                                                    f"{msg_fine}<code>Oggi</code>\n{msg_oggi}",
                                 reply_markup=KEYBOARD_START, parse_mode="HTML")
-        db_insert("preserved_msgIds", msg_.message_id, mode="append")
-        # db["preserved_msgIds"].append(msg_.message_id)
+        preserve_msg(msg_)
+        if not self.notime:
+            self.saveSend_TP()
 
         # eliminazione messaggi
         for messaggio in range(g_dict["start_msgId"], msg_.message_id):
@@ -1098,8 +1089,8 @@ class Training:
         fname = "temporanei/tp_data.json"
         with open(fname, "w") as file:
             json.dump(self.TP_data, file, indent=4)
-
-        bot.send_document(A_UID, open(fname, "rb"))
+        msg_ = bot.send_document(A_UID, open(fname, "rb"))
+        preserve_msg(msg_)
 
     def fine_creazione_scheda(self):
         w = self.usermode
@@ -1119,7 +1110,6 @@ class Training:
                     db_insert("new_training_data", [ese[i], "note"], mode="append")
 
         self.end_workout()
-        self.saveSend_TP()
 
     # MODIFICATIONS & COMPILE
 
@@ -1132,7 +1122,6 @@ class Training:
         text = text.replace("k", "㎏") if i_column == 4 else text
         text = text[0].upper() + text[1:] if i_column == 1 else text  # .capitalize() toglieva l'upper da tutto e lo metteva solo all'inizio
 
-        # todo controllare creazione scheda e come e quando viene applicata questa funzione
         if not creazione_scheda:  # se siamo in fase di creaizone scheda non viene applicata al database
             db_insert(["schede", self.data_scheda, w, i_ese, i_column], text)
 
@@ -1144,8 +1133,8 @@ class Training:
 
         # ricostruzione timer msg, usa esc_dizAll
         counter_massimo = self.counter_dict[w][i_ese]
-        counter_minimo = self.counter_dict[w][i_ese-1] if i_ese != 0 else 0  # è 0 se è il primo esercizio
-            # visto che counter 0 = primo esercizio prima serie, altrimenti è il limite massimo dell'es prima
+        counter_minimo = self.counter_dict[w][i_ese-1] if i_ese != 0 else 0  # è 0 se è il primo esercizio visto che counter 0 = primo esercizio prima serie, altrimenti è il limite
+        #   massimo dell'es prima
         for i_serie, counter in enumerate(range(counter_minimo, counter_massimo)):  # counter: counter del timer_msg da mettere nella flat list, i_serie: serve per fare N serie su N
             self.flat_timer_msg_list[w][counter] = eseSerie_to_timerMsg(self.diz_all, w, i_ese, i_serie)
 
@@ -1155,7 +1144,7 @@ class Training:
         """la funzione che viene usata quando si sta compilando una nuova scheda e vengono inseriti i valori"""
         w = self.usermode
 
-        mk = ">" if not callback or CB_new_dizAll_idx else "╳"  # simbolo usato
+        mk = ">" if not callback or CB_new_dizAll_idx else "⨉"  # simbolo usato
         type = DIZALL_IDX_TO_TYPE[dizAll_idx]
 
         if dizAll_idx == 3:  # serie
@@ -1228,10 +1217,8 @@ class Training:
             probs_text = "  ".join(probs_text)
 
             # bottoni per cambiare tipo
-            ic([LETTER_TO_TYPE[key] for key in s_probs_dict][1:])
-            ic(s_probs_dict)
-            texts_list = [LETTER_TO_TYPE[key] for key in s_probs_dict][1:] + ["✖️ Undo"]
-            change_buttons_raw = dict(texts=texts_list, callbacks=[f"CAMB{pred_idx}{i}" for i in texts_list])  # il callback è composto dal prev_idx del tipo
+            texts_list = [LETTER_TO_TYPE[key] for key in s_probs_dict][1:] + ["× Undo"]
+            change_buttons_raw = dict(texts=texts_list, callbacks=[f"CAMB{TYPE_TO_DIZALL_IDX[type]}{i}" for i in texts_list])  # il callback è composto dal prev_idx del tipo
                 # previsto e dalla stringa del tipo selezionato per cambiare
             change_buttons = inline_buttons_creator(change_buttons_raw, 4)
             self.creazioneScheda_undo["cambioScheda_msg"] = msg.text
@@ -1246,7 +1233,6 @@ class Training:
             msg_ = self.compile_lowLevel(msg.text, i_ese, TYPE_TO_DIZALL_IDX[type], A_UID, change_buttons=change_buttons, bot_probs=probs_text)
             # noinspection PyTypeChecker
             self.creazioneScheda_undo["cambioScheda_msgId"] = msg_.message_id
-
 
 
 T = Training()
@@ -1265,8 +1251,6 @@ def thread_telegram():
 
                 if msg.text == "/test":
                     print("test")
-                    ic(msg_id)
-                    ic(msg)
 
                     keyboard_workous = ReplyKeyboardMarkup()
                     keyboard_workous.row(KeyboardButton("Addominali"))
@@ -1664,7 +1648,9 @@ def thread_telegram():
             T.callback_antiSpam = True
 
             # CONFERMA DI /NUOVASCHEDA
-            # todo aggiustare comilazione nuovascheda
+            # todo aggiustare comilazione nuovascheda, una volta fatto,
+            #   controllare se pythonanywhere è compatibile con tensofrlow
+
             if code == "NUOV":
                 # creazione struttura nuova scheda nel db
                 YYYY_MM_DD = str(ora_EU())[:10]
